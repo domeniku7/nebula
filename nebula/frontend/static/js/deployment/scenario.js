@@ -81,7 +81,6 @@ const ScenarioManager = (function() {
                 initial_reputation: window.ReputationManager.getReputationConfig().initialReputation || 0.6,
                 weighting_factor: window.ReputationManager.getReputationConfig().weightingFactor || "dynamic"
             },
-            defense_method: window.DefenseMethodManager.getDefenseMethod(),
             mobility: window.MobilityManager.getMobilityConfig().enabled || false,
             network_simulation: window.MobilityManager.getMobilityConfig().network_simulation || false,
             mobility_type: window.MobilityManager.getMobilityConfig().mobilityType || "random",
@@ -231,9 +230,6 @@ const ScenarioManager = (function() {
                 weightingFactor: scenario.reputation.weighting_factor,
             });
         }
-        if (scenario.defense_method) {
-            window.DefenseMethodManager.setDefenseMethod(scenario.defense_method);
-        }
         if (scenario.with_sa) {
             window.SaManager.setSaConfig({
                 with_sa: scenario.with_sa,
@@ -343,9 +339,6 @@ const ScenarioManager = (function() {
         }
         if (window.ReputationManager) {
             window.ReputationManager.resetReputationConfig();
-        }
-        if (window.DefenseMethodManager) {
-            window.DefenseMethodManager.resetDefenseMethod();
         }
         if (window.SaManager) {
             window.SaManager.resetSaConfig();
