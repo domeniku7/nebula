@@ -97,7 +97,9 @@
       "metrics": {},
       "initial_reputation": 0.6,
       "weighting_factor": "dynamic"
-    }
+    },
+    "gradcampp": {
+      "enabled": false
   },
   "adversarial_args": {
     "attack_params" : {}
