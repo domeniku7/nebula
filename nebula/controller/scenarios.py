@@ -109,6 +109,7 @@ class Scenario:
         sar_training,
         sar_training_policy,
         physical_ips=None,
+        gradcampp_enabled=False,
     ):
         """
         Initialize a Scenario instance.
@@ -161,6 +162,7 @@ class Scenario:
             sar_training (bool): Wheter SAR training is enabled.
             sar_training_policy (str): Training policy for SAR.
             physical_ips (list, optional): List of physical IPs for nodes. Defaults to None.
+            gradcampp_enabled (bool, optional): Enable GradCam++ defense. Defaults to False.
         """
         self.scenario_title = scenario_title
         self.scenario_description = scenario_description
@@ -187,6 +189,7 @@ class Scenario:
         self.epochs = epochs
         self.attack_params = attack_params
         self.reputation = reputation
+        self.gradcampp_enabled = gradcampp_enabled
         self.random_geo = random_geo
         self.latitude = latitude
         self.longitude = longitude
@@ -698,6 +701,9 @@ class ScenarioManagement:
             else:
                 participant_config["adversarial_args"]["attack_params"] = {"attacks": "No Attack"}
             participant_config["defense_args"]["reputation"] = self.scenario.reputation
+            participant_config["defense_args"]["gradcampp"] = {
+                "enabled": self.scenario.gradcampp_enabled
+            }
 
             participant_config["mobility_args"]["random_geo"] = self.scenario.random_geo
             participant_config["mobility_args"]["latitude"] = self.scenario.latitude
