@@ -44,6 +44,7 @@ const DeploymentManager = (function() {
         window.GraphSettings = GraphSettings;
         window.DeploymentManager = DeploymentManager;
         window.Utils = Utils;
+        setupGradCamOption();
     }
 
     function getGraphWidth() {
@@ -59,7 +60,40 @@ const DeploymentManager = (function() {
         window.addEventListener("click", handleOutsideClick);
         setupDatasetListeners();
         //setupInputValidation();
+
+        const reputationSwitch = document.getElementById('reputationSwitch');
+        const gradcamSwitch = document.getElementById('gradcamSwitch');
+        const repSettings = document.getElementById('reputation-settings');
+        const weightSettings = document.getElementById('weighting-settings');
+        const repMetrics = document.getElementById('reputation-metrics');
+
+        if (reputationSwitch) {
+            reputationSwitch.addEventListener('change', function () {
+                if (this.checked) {
+                    gradcamSwitch.checked = false;
+                    repSettings.style.display = 'block';
+                    weightSettings.style.display = 'block';
+                    repMetrics.style.display = 'block';
+                } else {
+                    repSettings.style.display = 'none';
+                    weightSettings.style.display = 'none';
+                    repMetrics.style.display = 'none';
+                }
+            });
+        }
+
+        if (gradcamSwitch) {
+            gradcamSwitch.addEventListener('change', function () {
+                if (this.checked) {
+                    reputationSwitch.checked = false;
+                    repSettings.style.display = 'none';
+                    weightSettings.style.display = 'none';
+                    repMetrics.style.display = 'none';
+                }
+            });
+        }
     }
+
 
     function handleResize() {
         TopologyManager.updateGraph();
@@ -268,6 +302,31 @@ const DeploymentManager = (function() {
                     parseInt(input.getAttribute('max'))));
             }
         });
+    }
+
+    function setupGradCamOption() {
+        const gradcamDiv = document.getElementById('gradcam-option'); // Full section
+        const gradcamToggleWrapper = document.getElementById('gradcam-toggle-wrapper'); // Just the switch
+        const gradcamSwitch = document.getElementById('gradcamSwitch');
+        const archSelect = document.getElementById('federationArchitecture');
+
+        console.log('GradCam setup:', gradcamDiv, archSelect, gradcamSwitch);
+
+        if (!archSelect || !gradcamSwitch) return;
+
+        function toggleGradCam() {
+            if (archSelect.value === 'DFL') {
+                if (gradcamDiv) gradcamDiv.style.display = 'block';
+                if (gradcamToggleWrapper) gradcamToggleWrapper.style.display = 'block';
+            } else {
+                if (gradcamDiv) gradcamDiv.style.display = 'none';
+                if (gradcamToggleWrapper) gradcamToggleWrapper.style.display = 'none';
+                gradcamSwitch.checked = false;
+            }
+        }
+
+        archSelect.addEventListener('change', toggleGradCam);
+        toggleGradCam(); // Run on load
     }
 
     return {

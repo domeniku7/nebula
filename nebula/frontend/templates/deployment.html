@@ -627,12 +627,23 @@
                 </div>
                 <!-- Advanced Defense -->
                 <div class="form-group row container-shadow tiny grey">
-                    <h5 class="step-number">Defense <i class="fa fa-wrench"></i>
-                    </h5>
-                    <h5 class="step-title">Enable/Disable Reputation</h5>
-                    <div class="form-check form-switch" style="margin-left: 23px;">
-                        <input class="form-check-input" type="checkbox" id="reputationSwitch"
-                            style="display: inline; width: 80px; height: 30px;">
+                    <h5 class="step-number">Defense <i class="fa fa-wrench"></i></h5>
+                    <div class="d-flex align-items-center" style="margin-left: 23px; gap: 60px;">
+                        <div>
+                            <label class="form-check-label" for="reputationSwitch" style="margin-bottom: 5px;">Enable/Disable Reputation</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="reputationSwitch"
+                                    style="display: inline; width: 80px; height: 30px;">
+                            </div>
+                        </div>
+                        <!-- GradCam++ Toggle -->
+                        <div id="gradcam-toggle-wrapper" style="display: none;">
+                            <label class="form-check-label" for="gradcamSwitch" style="margin-bottom: 5px;">Enable GradCam++ defense</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="gradcamSwitch"
+                                    style="display: inline; width: 80px; height: 30px;">
+                            </div>
+                        </div>
                     </div>
                     <div id="reputation-settings" style="margin-top: 10px; display:none;">
                         <h5 class="step-title">Reputation Initialization</h5>

@@ -54,7 +54,7 @@ const ScenarioManager = (function() {
         // Get attack configuration
         const attackConfig = window.AttackManager.getAttackConfig();
 
-        return {
+        const a = {
             scenario_title: document.getElementById("scenario-title").value,
             scenario_description: document.getElementById("scenario-description").value,
             deployment: document.querySelector('input[name="deploymentRadioOptions"]:checked').value,
@@ -81,6 +81,7 @@ const ScenarioManager = (function() {
                 initial_reputation: window.ReputationManager.getReputationConfig().initialReputation || 0.6,
                 weighting_factor: window.ReputationManager.getReputationConfig().weightingFactor || "dynamic"
             },
+            gradcampp_enabled: document.getElementById("gradcamSwitch").checked,
             mobility: window.MobilityManager.getMobilityConfig().enabled || false,
             network_simulation: window.MobilityManager.getMobilityConfig().network_simulation || false,
             mobility_type: window.MobilityManager.getMobilityConfig().mobilityType || "random",
@@ -133,6 +134,9 @@ const ScenarioManager = (function() {
             gpu_id: [],
             physical_ips: physical_ips
         };
+
+        console.log("Collected Scenario Data:", a);
+        return a;
     }
 
     function loadScenarioData(scenario) {
@@ -230,6 +234,7 @@ const ScenarioManager = (function() {
                 weightingFactor: scenario.reputation.weighting_factor,
             });
         }
+        document.getElementById("gradcamSwitch").checked = scenario.gradcampp_enabled || false;
         if (scenario.with_sa) {
             window.SaManager.setSaConfig({
                 with_sa: scenario.with_sa,
@@ -325,6 +330,7 @@ const ScenarioManager = (function() {
         document.getElementById("aggregationSelect").value = "FedAvg";
         document.getElementById("loggingLevel").value = "false";
         document.getElementById("reportingSwitch").checked = true;
+        document.getElementById("gradcamSwitch").checked = false;
         document.getElementById("epochs").value = "1";
 
         // Reset modules
