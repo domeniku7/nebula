@@ -100,6 +100,7 @@
     },
     "gradcampp": {
       "enabled": false
+    }
   },
   "adversarial_args": {
     "attack_params" : {}
