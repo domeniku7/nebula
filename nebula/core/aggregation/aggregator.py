@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 class AggregatorException(Exception):
     pass
 
+
 class Aggregator(ABC):
     def __init__(self, config=None, engine=None):
         self.config = config
@@ -54,13 +55,12 @@ class Aggregator(ABC):
         """
         Updates the current set of nodes expected to participate in the upcoming aggregation round.
 
-        This method informs the update handler (`us`) about the new set of federation nodes, 
-        clears any pending models, and attempts to acquire the aggregation lock to prepare 
-        for model aggregation. If the aggregation process is already running, it releases the lock
-        and tries again to ensure proper cleanup between rounds.
+        This method informs the update handler (`us`) about the new set of federation nodes,
+        clears any pending models, and attempts to acquire the aggregation lock to prepare
+        for model aggregation. If the aggregation process is already running, it raises an exception.
 
         Args:
-            federation_nodes (set): A set of addresses representing the nodes expected to contribute 
+            federation_nodes (set): A set of addresses representing the nodes expected to contribute
                                     updates for the next aggregation round.
 
         Raises:
@@ -175,6 +175,7 @@ class Aggregator(ABC):
 
 def create_aggregator(config, engine) -> Aggregator:
     from nebula.core.aggregation.fedavg import FedAvg
+    from nebula.core.aggregation.gradcampp import GradCamPPDefenseMixin
     from nebula.core.aggregation.krum import Krum
     from nebula.core.aggregation.median import Median
     from nebula.core.aggregation.trimmedmean import TrimmedMean
@@ -186,8 +187,15 @@ def create_aggregator(config, engine) -> Aggregator:
         "TrimmedMean": TrimmedMean,
     }
     algorithm = config.participant["aggregator_args"]["algorithm"]
-    aggregator = ALGORITHM_MAP.get(algorithm)
-    if aggregator:
-        return aggregator(config=config, engine=engine)
-    else:
+    aggregator_cls = ALGORITHM_MAP.get(algorithm)
+    if not aggregator_cls:
         raise AggregatorException(f"Aggregation algorithm {algorithm} not found.")
+
+    if config.participant["defense_args"]["gradcampp"].get("enabled", False):
+        aggregator_cls = type(
+            f"GradCamPP{aggregator_cls.__name__}",
+            (GradCamPPDefenseMixin, aggregator_cls),
+            {},
+        )
+
+    return aggregator_cls(config=config, engine=engine)
