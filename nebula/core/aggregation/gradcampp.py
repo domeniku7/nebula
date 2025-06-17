@@ -101,7 +101,7 @@ class GradCamPPDefenseMixin:
         )
 
     def _sample_images(self) -> list[torch.Tensor]:
-        dataloader = self.engine.trainer.datamodule.bootstrap_dataloader()
+        dataloader = self.engine.trainer.datamodule.bootstrap_dataloader_data_val()
         class_to_images = defaultdict(list)
 
         # Accumulate images by class (up to 5 per class)

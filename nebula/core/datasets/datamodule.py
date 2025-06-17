@@ -171,3 +171,27 @@ class DataModule(LightningDataModule):
             drop_last=True,
             pin_memory=False,
         )
+    
+    def bootstrap_dataloader_data_val(self):
+        if self.data_val is None:
+            logging_training.warning("Validation dataset not initialized. Calling setup('fit') automatically.")
+            self.setup("fit")
+            if self.data_val is None:
+                raise ValueError(
+                    "Validation dataset not initialized. Please call setup('fit') before requesting bootstrap_dataloader."
+                )
+        random_sampler = RandomSampler(
+            data_source=self.data_val,
+            replacement=False,
+            num_samples=max(int(len(self.data_val) / 3), 300),
+        )
+        logging_training.info(f"Bootstrap samples: {len(random_sampler)}")
+        return DataLoader(
+            self.data_val,
+            batch_size=self.batch_size,
+            shuffle=False,
+            sampler=random_sampler,
+            num_workers=self.num_workers,
+            drop_last=True,
+            pin_memory=False,
+        )
