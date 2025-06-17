@@ -138,10 +138,10 @@ class GradCamPPDefenseMixin:
         # Handle NaN or zero-norm cases
         if np.any(np.isnan(vec1)) or np.any(np.isnan(vec2)):
             logging.warning("GradCamPPDefense: NaN detected in saliency vectors.")
-            return float("inf")
+            return None
         if np.linalg.norm(vec1) == 0 or np.linalg.norm(vec2) == 0:
             logging.warning("GradCamPPDefense: zero vector detected in saliency vectors.")
-            return float("inf")
+            return None
 
         return float(cosine(vec1, vec2))
 
@@ -165,7 +165,7 @@ class GradCamPPDefenseMixin:
         cam_ref = GradCAMPlusPlus(ref_model, ref_layer)
 
         # Compute distances for each peer model
-        for peer, (state_dict, weight) in models.items():
+        for peer, (state_dict, _weight) in models.items():
             if peer == self._addr:
                 # Skip comparison with the local model to avoid skewing the
                 # dynamic threshold toward zero.
@@ -181,7 +181,9 @@ class GradCamPPDefenseMixin:
                 heat_peer = cam_peer.generate(img)
                 vec1 = heat_ref.flatten()
                 vec2 = heat_peer.flatten()
-                dists.append(self._distance(vec1, vec2))
+                dist = self._distance(vec1, vec2)
+                if dist is not None:
+                    dists.append(dist)
 
             avg_dist = float(np.mean(dists))
             peer_distances_cache[peer] = avg_dist
@@ -206,6 +208,9 @@ class GradCamPPDefenseMixin:
                 trusted[peer] = models[peer]
             else:
                 logging.info(f"GradCamPPDefense: model from {peer} flagged as malicious (distance={avg_dist:.4f})")
+        if local_model is not None:
+            # Always include the local model in the aggregation set
+            trusted[local_addr] = local_model
 
         return trusted
 
