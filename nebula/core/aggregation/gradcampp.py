@@ -129,7 +129,6 @@ class GradCamPPDefenseMixin:
 
         return selected_images
 
-
     @staticmethod
     def _distance(vec1: np.ndarray, vec2: np.ndarray) -> float:
         # Normalize vectors to [0, 1]
@@ -146,7 +145,6 @@ class GradCamPPDefenseMixin:
 
         return float(cosine(vec1, vec2))
 
-
     def _filter_models(self, models: dict[str, tuple[dict, float]]) -> dict[str, tuple[dict, float]]:
         if not self._enabled:
             return models
@@ -159,12 +157,19 @@ class GradCamPPDefenseMixin:
         trusted = {}
         peer_distances_cache = {}
 
+        local_addr = self._addr
+        local_model = models.get(local_addr)
+
         ref_model = self.engine.trainer.model.to(self._device)
         ref_layer = self._get_target_layer(ref_model)
         cam_ref = GradCAMPlusPlus(ref_model, ref_layer)
 
         # Compute distances for each peer model
         for peer, (state_dict, weight) in models.items():
+            if peer == self._addr:
+                # Skip comparison with the local model to avoid skewing the
+                # dynamic threshold toward zero.
+                continue
             model_copy = copy.deepcopy(ref_model)
             model_copy.load_state_dict(state_dict)
             model_copy.to(self._device)
@@ -181,13 +186,22 @@ class GradCamPPDefenseMixin:
             avg_dist = float(np.mean(dists))
             peer_distances_cache[peer] = avg_dist
 
-        # Calculate dynamic threshold: mean of peer distances
+        # Calculate dynamic threshold ignoring infinite distances
         all_peer_distances = list(peer_distances_cache.values())
-        threshold = float(np.mean(all_peer_distances))
+        finite_dists = [d for d in all_peer_distances if np.isfinite(d)]
+        if finite_dists:
+            threshold = float(np.mean(finite_dists))
+        else:
+            logging.warning("GradCamPPDefense: no valid distances, using configured threshold")
+            threshold = self._threshold
         logging.info(f"GradCamPPDefense: Dynamic threshold = {threshold:.4f}")
 
-        # Filter based on threshold
+        # Filter based on threshold and distance validity
         for peer, avg_dist in peer_distances_cache.items():
+            logging.info(f"GradCamPPDefense: Peer {peer} distance to local model: {avg_dist:.4f}")
+            if not np.isfinite(avg_dist):
+                logging.info(f"GradCamPPDefense: model from {peer} flagged as malicious (invalid distance)")
+                continue
             if avg_dist <= threshold:
                 trusted[peer] = models[peer]
             else:
