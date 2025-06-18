@@ -156,6 +156,11 @@ class Aggregator(ABC):
         agg_event = AggregationEvent(updates, self._federation_nodes, missing_nodes)
         await EventManager.get_instance().publish_node_event(agg_event)
         aggregated_result = self.run_aggregation(updates)
+        if hasattr(self, "evaluate_flags"):
+            try:
+                await self.evaluate_flags()
+            except Exception as e:  # pragma: no cover - logging only
+                logging.exception(f"Error evaluating flagging metrics: {e}")
         return aggregated_result
 
     def print_model_size(self, model):

@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from scipy.spatial.distance import cosine
 from collections import defaultdict
+from nebula.addons.reputation.flagging_metrics import FlaggingEvaluator
 
 
 class GradCAMPlusPlus:
@@ -65,6 +66,8 @@ class GradCamPPDefenseMixin:
         self._threshold = defense_cfg.get("threshold", 0.5)
         self._samples = 16
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._flagged_nodes: list[str] = []
+        self._flagging_evaluator = FlaggingEvaluator()
 
     def _get_target_layer(self, model: torch.nn.Module) -> torch.nn.Module:
         """Return the last convolutional layer of ``model``.
@@ -96,9 +99,7 @@ class GradCamPPDefenseMixin:
         if conv_layers:
             return conv_layers[-1]
 
-        raise ValueError(
-            "Could not locate a convolutional layer for GradCAM++"
-        )
+        raise ValueError("Could not locate a convolutional layer for GradCAM++")
 
     def _sample_images(self) -> list[torch.Tensor]:
         dataloader = self.engine.trainer.datamodule.bootstrap_dataloader_data_val()
@@ -158,6 +159,8 @@ class GradCamPPDefenseMixin:
             logging.warning("GradCamPPDefense: no images sampled for defense.")
             return models
 
+        self._flagged_nodes = []
+
         trusted = {}
         peer_distances_cache = {}
 
@@ -169,9 +172,7 @@ class GradCamPPDefenseMixin:
             ref_layer = self._get_target_layer(ref_model)
         except ValueError:
             logging.warning(
-                "GradCamPPDefense: reference model has no convolutional layer;"
-                " skipping defense"
-            )
+                "GradCamPPDefense: reference model has no convolutional layer; skipping defense")
             return models
         cam_ref = GradCAMPlusPlus(ref_model, ref_layer)
 
@@ -225,6 +226,46 @@ class GradCamPPDefenseMixin:
 
         return trusted
 
+    async def evaluate_flags(self) -> None:
+        """Update flagging metrics and log them."""
+        if not self._enabled:
+            return
+
+        controller = self.config.participant["scenario_args"]["controller"]
+        scenario = self.config.participant["scenario_args"]["name"]
+        url = f"http://{controller}/nodes/{scenario}"
+        try:
+            from nebula.frontend.app import controller_get
+
+            nodes = await controller_get(url)
+        except Exception as e:  # pragma: no cover - logging only
+            logging.exception(f"GradCamPPDefense: error retrieving nodes from controller: {e}")
+            return
+
+        if not isinstance(nodes, list):
+            logging.warning("GradCamPPDefense: unexpected nodes response")
+            return
+
+        status_map = {f"{n['ip']}:{n['port']}": n.get("malicious", False) for n in nodes}
+
+        for peer in self._federation_nodes:
+            if peer == self._addr:
+                continue
+            predicted = peer in self._flagged_nodes
+            actual = status_map.get(peer, False)
+            self._flagging_evaluator.update(predicted, actual)
+
+        metrics = self._flagging_evaluator.compute()
+        if self.engine and self.engine.trainer and self.engine.trainer._logger:
+            self.engine.trainer._logger.log_data(
+                {
+                    "Flagging/Precision": metrics["precision"],
+                    "Flagging/Recall": metrics["recall"],
+                    "Flagging/F1": metrics["f1"],
+                },
+                step=self.engine.round,
+            )
+            
     def run_aggregation(self, models: dict[str, tuple[dict, float]]):
         models = self._filter_models(models)
         logging.info(f"GradCamPPDefense: aggregating updates from {list(models.keys())}")
