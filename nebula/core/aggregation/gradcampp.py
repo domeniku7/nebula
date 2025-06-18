@@ -63,7 +63,7 @@ class GradCamPPDefenseMixin:
         defense_cfg = self.config.participant["defense_args"]["gradcampp"]
         self._enabled = defense_cfg.get("enabled", False)
         self._threshold = defense_cfg.get("threshold", 0.5)
-        self._samples = defense_cfg.get("samples", 5)
+        self._samples = 16
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def _get_target_layer(self, model: torch.nn.Module) -> torch.nn.Module:
@@ -125,9 +125,13 @@ class GradCamPPDefenseMixin:
 
         selected_images = []
         for _, imgs in selected_classes:
-            selected_images.extend(random.sample(imgs, k=min(5, len(imgs))))
+            if len(selected_images) >= self._samples:
+                break
+            remaining = self._samples - len(selected_images)
+            per_class = min(len(imgs), remaining, 5)
+            selected_images.extend(random.sample(imgs, k=per_class))
 
-        return selected_images
+        return selected_images[: self._samples]
 
     @staticmethod
     def _distance(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -161,7 +165,14 @@ class GradCamPPDefenseMixin:
         local_model = models.get(local_addr)
 
         ref_model = self.engine.trainer.model.to(self._device)
-        ref_layer = self._get_target_layer(ref_model)
+        try:
+            ref_layer = self._get_target_layer(ref_model)
+        except ValueError:
+            logging.warning(
+                "GradCamPPDefense: reference model has no convolutional layer;"
+                " skipping defense"
+            )
+            return models
         cam_ref = GradCAMPlusPlus(ref_model, ref_layer)
 
         # Compute distances for each peer model
@@ -216,4 +227,5 @@ class GradCamPPDefenseMixin:
 
     def run_aggregation(self, models: dict[str, tuple[dict, float]]):
         models = self._filter_models(models)
+        logging.info(f"GradCamPPDefense: aggregating updates from {list(models.keys())}")
         return super().run_aggregation(models)
