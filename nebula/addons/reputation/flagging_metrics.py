@@ -14,8 +14,8 @@ class FlaggingEvaluator:
 
     def update(self, predicted: bool, actual: bool) -> None:
         """Update metrics with a new prediction."""
-        pred_tensor = torch.tensor(int(predicted))
-        actual_tensor = torch.tensor(int(actual))
+        pred_tensor = torch.tensor([int(predicted)])
+        actual_tensor = torch.tensor([int(actual)])
         self.precision.update(pred_tensor, actual_tensor)
         self.recall.update(pred_tensor, actual_tensor)
         self.f1.update(pred_tensor, actual_tensor)

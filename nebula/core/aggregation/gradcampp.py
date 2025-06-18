@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from scipy.spatial.distance import cosine
 from collections import defaultdict
 from nebula.addons.reputation.flagging_metrics import FlaggingEvaluator
+from nebula.controller.http_helpers import remote_get
 
 
 class GradCAMPlusPlus:
@@ -213,13 +214,11 @@ class GradCamPPDefenseMixin:
         # Filter based on threshold and distance validity
         for peer, avg_dist in peer_distances_cache.items():
             logging.info(f"GradCamPPDefense: Peer {peer} distance to local model: {avg_dist:.4f}")
-            if not np.isfinite(avg_dist):
-                logging.info(f"GradCamPPDefense: model from {peer} flagged as malicious (invalid distance)")
-                continue
             if avg_dist <= threshold:
                 trusted[peer] = models[peer]
             else:
                 logging.info(f"GradCamPPDefense: model from {peer} flagged as malicious (distance={avg_dist:.4f})")
+                self._flagged_nodes.append(peer)
         if local_model is not None:
             # Always include the local model in the aggregation set
             trusted[local_addr] = local_model
@@ -233,13 +232,9 @@ class GradCamPPDefenseMixin:
 
         controller = self.config.participant["scenario_args"]["controller"]
         scenario = self.config.participant["scenario_args"]["name"]
-        url = f"http://{controller}/nodes/{scenario}"
-        try:
-            from nebula.frontend.app import controller_get
-
-            nodes = await controller_get(url)
-        except Exception as e:  # pragma: no cover - logging only
-            logging.exception(f"GradCamPPDefense: error retrieving nodes from controller: {e}")
+        status, nodes = await remote_get(controller, f"/nodes/{scenario}")
+        if status != 200:
+            logging.error(f"GradCamPPDefense: error retrieving nodes from controller: {status} {nodes}")
             return
 
         if not isinstance(nodes, list):
@@ -247,6 +242,16 @@ class GradCamPPDefenseMixin:
             return
 
         status_map = {f"{n['ip']}:{n['port']}": n.get("malicious", False) for n in nodes}
+        def _to_bool(val: object) -> bool:
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, (int, float)):
+                return bool(val)
+            if isinstance(val, str):
+                return val.lower() in {"true", "1", "yes", "y", "t"}
+            return False
+
+        status_map = {f"{n['ip']}:{n['port']}": _to_bool(n.get("malicious", False)) for n in nodes}
 
         for peer in self._federation_nodes:
             if peer == self._addr:
@@ -265,7 +270,7 @@ class GradCamPPDefenseMixin:
                 },
                 step=self.engine.round,
             )
-            
+
     def run_aggregation(self, models: dict[str, tuple[dict, float]]):
         models = self._filter_models(models)
         logging.info(f"GradCamPPDefense: aggregating updates from {list(models.keys())}")
