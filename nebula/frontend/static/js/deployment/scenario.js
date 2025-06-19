@@ -130,8 +130,8 @@ const ScenarioManager = (function() {
             network_gateway: "172.20.0.1",
             additional_participants: window.MobilityManager.getMobilityConfig().additionalParticipants || [],
             schema_additional_participants: document.getElementById("schemaAdditionalParticipantsSelect").value || "random",
-            accelerator: "cpu",
-            gpu_id: [],
+            accelerator: "gpu",
+            gpu_id: [0],
             physical_ips: physical_ips
         };
 

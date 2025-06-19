@@ -20,8 +20,8 @@
     "proxy": false,
     "malicious": false,
     "start": false,
-    "accelerator": "cpu",
-    "gpu_id" : null,
+    "accelerator": "gpu",
+    "gpu_id": [0],
     "devices": 2,
     "strategy": "ddp",
     "logging": false
