@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import torch
-from torchmetrics.classification import BinaryF1Score, BinaryPrecision, BinaryRecall
+from torchmetrics.classification import (
+    BinaryAccuracy,
+    BinaryF1Score,
+    BinaryPrecision,
+    BinaryRecall,
+)
+
 
 
 class FlaggingEvaluator:
@@ -11,6 +17,7 @@ class FlaggingEvaluator:
         self.precision = BinaryPrecision()
         self.recall = BinaryRecall()
         self.f1 = BinaryF1Score()
+        self.accuracy = BinaryAccuracy()
 
     def update(self, predicted: bool, actual: bool) -> None:
         """Update metrics with a new prediction."""
@@ -19,6 +26,7 @@ class FlaggingEvaluator:
         self.precision.update(pred_tensor, actual_tensor)
         self.recall.update(pred_tensor, actual_tensor)
         self.f1.update(pred_tensor, actual_tensor)
+        self.accuracy.update(pred_tensor, actual_tensor)
 
     def compute(self, reset: bool = True) -> dict[str, float]:
         """Compute metrics and optionally reset internal state."""
@@ -26,9 +34,11 @@ class FlaggingEvaluator:
             "precision": float(self.precision.compute()),
             "recall": float(self.recall.compute()),
             "f1": float(self.f1.compute()),
+            "accuracy": float(self.accuracy.compute()),
         }
         if reset:
             self.precision.reset()
             self.recall.reset()
             self.f1.reset()
+            self.accuracy.reset()
         return metrics

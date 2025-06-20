@@ -267,6 +267,7 @@ class GradCamPPDefenseMixin:
                     "Flagging/Precision": metrics["precision"],
                     "Flagging/Recall": metrics["recall"],
                     "Flagging/F1": metrics["f1"],
+                    "Flagging/Accuracy": metrics["accuracy"],
                 },
                 step=self.engine.round,
             )
