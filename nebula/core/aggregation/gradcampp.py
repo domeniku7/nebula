@@ -1,6 +1,9 @@
 import copy
+import csv
 import logging
+import os
 import random
+
 
 import numpy as np
 import torch
@@ -69,6 +72,33 @@ class GradCamPPDefenseMixin:
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._flagged_nodes: list[str] = []
         self._flagging_evaluator = FlaggingEvaluator()
+
+    def _log_metrics_csv(self, metrics: dict[str, float]) -> None:
+        """Append metrics for the current round to a CSV file."""
+        if not (self.engine and self.engine.trainer and self.engine.trainer._logger):
+            return
+
+        log_dir = getattr(self.engine.trainer._logger, "log_dir", None)
+        if not log_dir:
+            return
+
+        file_path = os.path.join(log_dir, "flagging_metrics.csv")
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        file_exists = os.path.isfile(file_path)
+
+        with open(file_path, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            if not file_exists:
+                writer.writerow(["round", "precision", "recall", "f1", "accuracy"])
+            writer.writerow(
+                [
+                    self.engine.round,
+                    metrics["precision"],
+                    metrics["recall"],
+                    metrics["f1"],
+                    metrics["accuracy"],
+                ]
+            )
 
     def _get_target_layer(self, model: torch.nn.Module) -> torch.nn.Module:
         """Return the last convolutional layer of ``model``.
@@ -271,6 +301,7 @@ class GradCamPPDefenseMixin:
                 },
                 step=self.engine.round,
             )
+            self._log_metrics_csv(metrics)
 
     def run_aggregation(self, models: dict[str, tuple[dict, float]]):
         models = self._filter_models(models)
