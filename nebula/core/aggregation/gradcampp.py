@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.spatial.distance import cosine
-from collections import defaultdict
+from collections import defaultdict, deque
 from nebula.addons.reputation.flagging_metrics import FlaggingEvaluator
 from nebula.controller.http_helpers import remote_get
 
@@ -71,6 +71,8 @@ class GradCamPPDefenseMixin:
         self._samples = 16
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._flagged_nodes: list[str] = []
+        self._blacklist: set[str] = set()
+        self._flag_history: dict[str, deque[bool]] = defaultdict(lambda: deque(maxlen=4))
         self._flagging_evaluator = FlaggingEvaluator()
 
     def _log_metrics_csv(self, metrics: dict[str, float]) -> None:
@@ -173,10 +175,10 @@ class GradCamPPDefenseMixin:
 
         # Handle NaN or zero-norm cases
         if np.any(np.isnan(vec1)) or np.any(np.isnan(vec2)):
-            logging.warning("GradCamPPDefense: NaN detected in saliency vectors.")
+            # logging.warning("GradCamPPDefense: NaN detected in saliency vectors.")
             return None
         if np.linalg.norm(vec1) == 0 or np.linalg.norm(vec2) == 0:
-            logging.warning("GradCamPPDefense: zero vector detected in saliency vectors.")
+            # logging.warning("GradCamPPDefense: zero vector detected in saliency vectors.")
             return None
 
         return float(cosine(vec1, vec2))
@@ -241,14 +243,38 @@ class GradCamPPDefenseMixin:
             threshold = self._threshold
         logging.info(f"GradCamPPDefense: Dynamic threshold = {threshold:.4f}")
 
-        # Filter based on threshold and distance validity
         for peer, avg_dist in peer_distances_cache.items():
-            logging.info(f"GradCamPPDefense: Peer {peer} distance to local model: {avg_dist:.4f}")
-            if avg_dist <= threshold:
-                trusted[peer] = models[peer]
-            else:
-                logging.info(f"GradCamPPDefense: model from {peer} flagged as malicious (distance={avg_dist:.4f})")
+            logging.info(
+                f"GradCamPPDefense: Peer {peer} distance to local model: {avg_dist:.4f}"
+            )
+
+            flagged = False
+            if peer in self._blacklist:
+                logging.info(
+                    f"GradCamPPDefense: peer {peer} is blacklisted and will be flagged"
+                )
+                flagged = True
+            elif avg_dist > threshold:
+                logging.info(
+                    f"GradCamPPDefense: model from {peer} flagged as malicious (distance={avg_dist:.4f})"
+                )
+                flagged = True
+
+            history = self._flag_history[peer]
+            history.append(flagged)
+            if len(history) == history.maxlen and sum(history) >= 3:
+                if peer not in self._blacklist:
+                    logging.info(
+                        f"GradCamPPDefense: peer {peer} added to blacklist after consecutive flags"
+                    )
+                    self._blacklist.add(peer)
+                flagged = True
+
+            if flagged:
                 self._flagged_nodes.append(peer)
+            else:
+                trusted[peer] = models[peer]
+                
         if local_model is not None:
             # Always include the local model in the aggregation set
             trusted[local_addr] = local_model
