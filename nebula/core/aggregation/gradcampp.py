@@ -72,7 +72,7 @@ class GradCamPPDefenseMixin:
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._flagged_nodes: list[str] = []
         self._blacklist: set[str] = set()
-        self._flag_history: dict[str, deque[bool]] = defaultdict(lambda: deque(maxlen=4))
+        self._flag_history: dict[str, deque[bool]] = defaultdict(lambda: deque(maxlen=5))
         self._flagging_evaluator = FlaggingEvaluator()
 
     def _log_metrics_csv(self, metrics: dict[str, float]) -> None:
@@ -262,7 +262,7 @@ class GradCamPPDefenseMixin:
 
             history = self._flag_history[peer]
             history.append(flagged)
-            if len(history) == history.maxlen and sum(history) >= 3:
+            if len(history) == history.maxlen and sum(history) >= 4:
                 if peer not in self._blacklist:
                     logging.info(
                         f"GradCamPPDefense: peer {peer} added to blacklist after consecutive flags"
