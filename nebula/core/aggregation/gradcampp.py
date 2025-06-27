@@ -230,7 +230,7 @@ class GradCamPPDefenseMixin:
                 if dist is not None:
                     dists.append(dist)
 
-            avg_dist = float(np.mean(dists)) if dists else float("nan")
+            avg_dist = float(np.mean(dists))
             peer_distances_cache[peer] = avg_dist
 
         # Calculate dynamic threshold ignoring infinite distances
@@ -249,12 +249,7 @@ class GradCamPPDefenseMixin:
             )
 
             flagged = False
-            if not np.isfinite(avg_dist):
-                logging.info(
-                    f"GradCamPPDefense: model from {peer} flagged as malicious (invalid distance)"
-                )
-                flagged = True
-            elif peer in self._blacklist:
+            if peer in self._blacklist:
                 logging.info(
                     f"GradCamPPDefense: peer {peer} is blacklisted and will be flagged"
                 )
